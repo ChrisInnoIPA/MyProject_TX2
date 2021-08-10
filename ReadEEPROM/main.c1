@@ -1,0 +1,54 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
+//#include "include/libSample.h"
+#include "libTestOfBoard.h"
+
+#define MAX_PATH 	1024
+#define TESTING_MSG	"Aetina Corporation"
+
+#define EEPROM_I2C_ID 7
+#define EEPROM_I2C_ADDRESS 0x57
+
+EEPROM_CFG *eeprom_cfg;
+EEPROM_Result *eeprom_result;
+
+int main(void){
+
+	// printf("------> %s %d \n", __FUNCTION__, __LINE__); fflush(stdout);
+
+    // LIB_Init();
+
+    // printf("------> %s %d \n", __FUNCTION__, __LINE__); fflush(stdout);
+    
+    // LIB_SetMessage(TESTING_MSG);
+
+    // printf("------> %s %d \n", __FUNCTION__, __LINE__); fflush(stdout);
+
+    // char szMsg[MAX_PATH] = {0};
+	// 	if(LIB_GetMessage(szMsg) != OK){
+	// 	}
+
+    // printf(szMsg);
+    // printf("------> %s %d \n", __FUNCTION__, __LINE__); fflush(stdout);
+
+	// LIB_Uninit();
+
+    TOB_WriteEEPROM(eeprom_cfg, eeprom_result);
+
+    printf("------> %s %d \n", __FUNCTION__, __LINE__); fflush(stdout);
+
+    //TOB_ReadEEPROM(EEPROM_CFG *eeprom_cfg, EEPROM_Result *eeprom_result);
+
+    char szMsg[MAX_PATH] = {0};
+
+    if( TOB_ReadEEPROM(eeprom_cfg, eeprom_result) != OK){
+	}
+
+    //printf(TOB_ReadEEPROM);
+
+    printf("------> %s %d \n", __FUNCTION__, __LINE__); fflush(stdout);
+
+    return 0;
+}
