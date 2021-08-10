@@ -1,0 +1,397 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <linux/reboot.h>
+#include <stdbool.h>
+#include <getopt.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/statfs.h>
+#include <sys/ioctl.h>
+#include <linux/fs.h>
+#include <time.h>
+
+#include "ini.h"
+
+#define CONF_FILE_PATH "iCover.ini"
+#define iCover_PATH "root=/dev/sda1"
+
+enum
+{
+    MODE_BACKUP = 0,
+    MODE_RECOVERY,
+};
+
+typedef struct
+{
+    int mode;
+    char source[64];
+    char target[64];
+} ICOVER_INFO;
+
+/*-----------------------------------------------------------------------------------------------------------*/
+static const struct option long_opt[] =
+    {
+        {"mode", 1, NULL, 'm'}, /* 0:backup, 1:revocery */
+                                //{"source", 1, NULL, 's'},
+                                //{"target", 1, NULL, 't'},
+};
+
+/*-----------------------------------------------------------------------------------------------------------*/
+static void show_usage(char *name)
+{
+    printf("Syntax: %s [-option ...] \n", name);
+    printf("Sample: %s -m 0 -s /dev/sdb -t os.img \n", name);
+    printf("Sample: %s -m 1 -s os.img -t /dev/sdb \n", name);
+    printf("Option:\n");
+    printf("  -m : 0:backup 1:recovery \n");
+    printf("  -s : sourec \n");
+    printf("  -t : target \n");
+}
+
+/*-----------------------------------------------------------------------------------------------------------*/
+int USB_PATH()
+{
+    FILE *fp;
+
+    char *buf, tmp[64];
+    int len;
+
+    /*------------------------------------------------------------*/
+
+    FILE *f = fopen("log.txt", "w");
+    if (f == NULL)
+    {
+        printf("Error opening file!\n");
+        exit(1);
+    }
+
+    const char *extlinuxstart = "extlinux start";
+    fprintf(f, "Now mode: %s\n", extlinuxstart);
+
+    fp = fopen("/boot/extlinux/extlinux.conf", "r");
+
+    if (fp == NULL)
+    {
+        const char *extlinuxopen = "extlinux open fail";
+        fprintf(f, "Now mode: %s\n", extlinuxopen);
+        
+        printf("open %s fail !! \n", "extlinux.conf");
+        return 0;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    len = ftell(fp) + strlen(iCover_PATH);
+
+    buf = malloc(len);
+    memset(buf, 0, len);
+    fseek(fp, 0, SEEK_SET);
+
+    while (fgets(tmp, sizeof(tmp), fp))
+    {
+        const char *extlinuxwriteusb = "extlinux write USB";
+        fprintf(f, "Now mode: %s\n", extlinuxwriteusb);
+        
+        if (strstr(tmp, "APPEND ${cbootargs} quiet"))
+            sprintf(tmp, "APPEND ${cbootargs} %s quiet\n", iCover_PATH);
+
+        strcat(buf, tmp);
+    }
+
+    fclose(fp);
+
+    /*------------------------------------------------------------*/
+    fp = fopen("/boot/extlinux/extlinux.conf", "w");
+
+    if (fp == NULL)
+    {
+        printf("open %s fail !! \n", "extlinux.conf");
+        return 0;
+    }
+
+    fwrite(buf, 1, len, fp);
+    fclose(fp);
+    free(buf);
+
+    const char *writereboot = "Reboot start";
+    fprintf(f, "Now mode: %s\n", writereboot);
+
+    system("init 6");
+
+    const char *reboot = "Reboot Now";
+    fprintf(f, "Now mode: %s\n", reboot);
+
+    // free(buf);
+    // float i = 100;
+    // for (; (int)i >= 0; i -= 0.01)
+    // {
+    //     printf("time remind %.2f\n", i);
+    //     printf("be quick!!!!!");
+
+    //     system("cls");
+    // }
+    return 0;
+}
+
+/*-----------------------------------------------------------------------------------------------------------*/
+int TX2_PATH()
+{
+    FILE *fp;
+
+    char *buf, tmp[64];
+    int len;
+
+    /*------------------------------------------------------------*/
+    fp = fopen("extlinux.conf", "r");
+
+    if (fp == NULL)
+    {
+        printf("open %s fail !! \n", "extlinux.conf");
+        return 0;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    len = ftell(fp) - strlen(iCover_PATH) - 1;
+
+    buf = malloc(len);
+    memset(buf, 0, len);
+    fseek(fp, 0, SEEK_SET);
+
+    while (fgets(tmp, sizeof(tmp), fp))
+    {
+        if (strstr(tmp, "APPEND ${cbootargs} quiet"))
+            sprintf(tmp, "APPEND ${cbootargs} %s quiet\n", iCover_PATH);
+
+        strcat(buf, tmp);
+    }
+
+    fclose(fp);
+
+    /*------------------------------------------------------------*/
+    fp = fopen("extlinux.conf", "w");
+
+    if (fp == NULL)
+    {
+        printf("open %s fail !! \n", "extlinux.conf");
+        return 0;
+    }
+
+    fwrite(buf, 1, len, fp);
+    fclose(fp);
+
+    free(buf);
+
+    float i = 100;
+    for (; (int)i >= 0; i -= 0.01)
+    {
+        printf("time remind %.2f\n", i);
+        printf("be quick!!!!!");
+
+        system("cls");
+    }
+
+    return 0;
+}
+
+/*-----------------------------------------------------------------------------------------------------------*/
+unsigned long long get_disk_length_by_cmd(char *disk)
+{
+    unsigned long long bytes = 0;
+
+    int fd, ret = 0;
+
+    fd  = open(disk, O_RDONLY | O_NONBLOCK);
+    ret = ioctl(fd, BLKGETSIZE64, &bytes);
+    close(fd);
+
+    if(ret != 0)
+        printf("Fail !! \n");
+
+    return bytes;
+}
+/*-----------------------------------------------------------------------------------------------------------*/
+
+int partitionsizeSD()
+{
+    int mmcblk0p1 = ("Capacity = %.2f GB \n", get_disk_length_by_cmd("/dev/mmcblk0p1") / 1024.0 / 1024.0 / 1024.0);
+    //int mmcblk2p2 = ("Capacity = %.2f GB \n", get_disk_length_by_cmd("/dev/mmcblk2p2") / 1024.0 / 1024.0 / 1024.0);
+    int mmcblk1p2 = ("Capacity = %.2f GB \n", get_disk_length_by_cmd("/dev/mmcblk1p2") / 1024.0 / 1024.0 / 1024.0);
+
+        if(mmcblk1p2 < mmcblk0p1)
+        {
+            printf("Storage space too small\n");
+
+            return 0;
+        }
+        else
+        {
+            USB_PATH();
+        }
+
+}
+
+int partitionsizeUSB()
+{
+    int mmcblk0p1 = ("Capacity = %.2f GB \n", get_disk_length_by_cmd("/dev/mmcblk0p1") / 1024.0 / 1024.0 / 1024.0);
+    int sda2 = ("Capacity = %.2f GB \n", get_disk_length_by_cmd("/dev/sda2") / 1024.0 / 1024.0 / 1024.0);
+
+        if(sda2 < mmcblk0p1)
+        {
+            printf("Storage space too small\n");
+
+            return 0;
+        }
+        else
+        {
+            USB_PATH();
+        }
+
+}
+
+
+/*-----------------------------------------------------------------------------------------------------------*/
+int main(int argc, char **argv)
+{
+    FILE *f = fopen("log.txt", "w");
+    if (f == NULL)
+    {
+        printf("Error opening file!\n");
+        exit(1);
+    }
+
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+    //printf("now: %d-%02d-%02d \n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
+
+    if(tm.tm_year >= "2021")
+    {
+        printf("Time's up, Please use relsase ver");
+
+        return 0;
+    }
+
+    ICOVER_INFO info;
+    int opt;
+    int ret;
+
+    memset(&info, 0, sizeof(ICOVER_INFO));
+    info.mode = -1;
+
+    if (argc < 2)
+    {
+        show_usage(argv[0]);
+        return 0;
+    }
+
+    const char *text = "Select back up or recovery";
+    fprintf(f, "Now mode: %s\n", text);
+
+    while ((opt = getopt_long(argc, argv, "?hm:s:t:", long_opt, NULL)) != -1)
+    {
+        switch (opt)
+        {
+        case 'm':
+            info.mode = atoi(optarg);
+
+            if (info.mode < MODE_BACKUP || info.mode > MODE_RECOVERY)
+                info.mode = -1;
+            break;
+        case 's':
+            strcpy(info.source, optarg);
+            break;
+        case 't':
+            strcpy(info.target, optarg);
+            break;
+        case 'h':
+        case '?':
+        default:
+            show_usage(argv[0]);
+            return 0;
+        }
+    }
+
+    const char *writeini = "write ini ";
+    fprintf(f, "Now mode: %s\n", writeini);
+
+    if (info.mode == MODE_BACKUP)
+    {
+        ret = PutIniKeyString("Mode", "mode", "1", "./iCover.ini");
+        printf("Mode : Backup \n");
+    }
+    else if (info.mode == MODE_RECOVERY)
+    {
+        ret = PutIniKeyString("Mode", "mode", "2", "./iCover.ini");
+        printf("Mode : Recovery \n");
+    }
+    else
+    {
+        printf("Unknow mode \n");
+    }
+
+    if (strlen(info.source) > 0)
+    {
+        ret = PutIniKeyString("Source", "source", "/dev/mmcblb0p1", "./iCover.ini");
+        printf("Source : %s \n", info.source);
+    }
+    else
+    {
+        //printf("Source : unknow \n");
+    }
+
+    if (strlen(info.target) > 0)
+    {
+        ret = PutIniKeyString("Target", "target", "OS.img", "./iCover.ini");
+        printf("target : %s \n", info.target);
+    }
+    else
+    {
+        //printf("target : unknow \n");
+    }
+
+    //if(tm.tm_year < "2021")
+    //{
+        //partitionsizeSD();
+        //partitionsizeUSB();
+
+    const char *writeUSBsize = "USB SIZE compare ";
+    fprintf(f, "Now mode: %s\n", writeUSBsize);
+
+    int mmcblk0p1 = ("Capacity = %.2f GB \n", get_disk_length_by_cmd("/dev/mmcblk0p1") / 1024.0 / 1024.0 / 1024.0);
+    int sda2 = ("Capacity = %.2f GB \n", get_disk_length_by_cmd("/dev/sda2") / 1024.0 / 1024.0 / 1024.0);
+
+        if(sda2 < mmcblk0p1)
+        {
+            printf("Storage space too small\n");
+            const char *USBsize = "USB SIZE tosmall ";
+            fprintf(f, "Now mode: %s\n", USBsize);
+            return 0;
+        }
+        else
+        {
+            //printf("entry USB");
+            USB_PATH();
+        }
+
+        return 0;
+    //}
+    //else
+    //{
+        //printf("Time's up, Please use relsase ver");
+
+        //return 0;
+    //}
+    // if(mmcblk1p2 < mmcblk0p1)
+    // {
+    //     printf("Storage space too small\n");
+
+    //     return 0;
+    // }
+    // else
+    // {
+    //     USB_PATH();
+    // }
+
+    // return 0;
+}

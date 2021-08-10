@@ -1,0 +1,1 @@
+arch_compat: imx6qsabresd: all any noarch armv5hf_vfp armv5ehf_vfp armv6hf_vfp armv7ahf_vfp armv7ahf_neon cortexa9hf_vfp cortexa9hf_neon cortexa9hf_neon_mx6qdl cortexa9t2hf_neon_mx6qdl imx6qsabresd
